@@ -12,6 +12,12 @@ if (NON_BLOCKING)
     add_definitions(-D NON_BLOCKING)
 endif()
 
+message("CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
+if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+    message("Debug enabled!!")
+    add_definitions(-D DEBUG)
+endif()
+
 
 # set compiler flags
 set(CMAKE_CXX_STANDARD 20)
