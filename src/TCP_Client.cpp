@@ -4,6 +4,7 @@
 #include <netdb.h>
 #include <cstring>
 #include <fcntl.h>
+#include <unistd.h>
 
 
 TCP_Client::TCP_Client(const std::string& _ip, const uint16_t _port, std::shared_ptr<AbstractProtocol> _protocol) :

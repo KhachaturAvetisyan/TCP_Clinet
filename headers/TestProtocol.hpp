@@ -2,7 +2,7 @@
 
 #include "AbstractProtocol.hpp"
 
-class TestProtocol : public AbstractProtocol
+class TestProtocol final : public AbstractProtocol
 {
 public:
     TestProtocol();

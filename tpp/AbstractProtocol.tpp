@@ -110,7 +110,7 @@ void AbstractProtocol::recv_data(T data, size_t size)
     std::memset(data, 0, size);
 
     // init variables
-    ssize_t retval = recv(socket_fd, data, size, RECV_FLAGS);
+    const ssize_t retval = recv(socket_fd, data, size, RECV_FLAGS);
 
     // check return value
     if (retval == 0)
@@ -137,12 +137,12 @@ void AbstractProtocol::send_data(T data, size_t size)
     std::cout << "Sending data" << std::endl;
 
     // init variable
-    ssize_t retval = send(socket_fd, data, size, SEND_FLAGS);
+    const ssize_t retval = send(socket_fd, data, size, SEND_FLAGS);
 
     // check return value
     if (retval < 0)
     {
-        throw std::runtime_error("Error sending data: " + std::string(strerror(errno)));
+        throw std::runtime_error("Error sending data: " + std::string(strerror(errno)) + " <-> " + std::to_string(errno));
     }
 
     if (retval != size)

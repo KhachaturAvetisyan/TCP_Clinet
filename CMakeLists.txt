@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.20)
 project(TCP_Client)
 
 # init options flags
-option(NON_BLOCKING "enable non-blocking sockets (or no)" ON)
+option(NON_BLOCKING "enable non-blocking sockets (or no)" OFF)
 
 
 # check NON_BLOCKING flag and add definition
