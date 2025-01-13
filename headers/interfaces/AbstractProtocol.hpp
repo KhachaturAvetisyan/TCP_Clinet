@@ -3,10 +3,6 @@
 #include <iostream>
 
 
-#define RECV_FLAGS          0
-#define SEND_FLAGS          0
-
-
 class AbstractProtocol
 {
 protected:
@@ -16,14 +12,9 @@ protected:
     static void log_buffer_hex(T buffer, size_t size);
 
     template <typename T>
-    void read_data_poll(T data, size_t size, uint16_t timeout);
+    ssize_t recv_data(T data, size_t size);
     template <typename T>
-    void send_data_poll(T data, size_t size, uint16_t timeout);
-
-    template <typename T>
-    void recv_data(T data, size_t size);
-    template <typename T>
-    void send_data(T data, size_t size);
+    ssize_t send_data(T data, size_t size);
 
 public:
     AbstractProtocol() = default;

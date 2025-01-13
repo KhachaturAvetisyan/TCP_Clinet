@@ -6,8 +6,13 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <cstring>
+#include <climits>
 
-#include "AbstractProtocol.hpp"
+
+constexpr int RECV_FLAGS = 0; // Replace it with actual flags if needed
+constexpr int SEND_FLAGS = 0; // Replace it with actual flags if needed
+
+constexpr size_t CHUNK_SIZE = 256U; // Replace it with actual value
 
 
 template <typename T>
@@ -25,132 +30,179 @@ void AbstractProtocol::log_buffer_hex(T buffer, const size_t size)
 }
 
 template <typename T>
-void AbstractProtocol::read_data_poll(T data, size_t size, const uint16_t timeout)
+ssize_t AbstractProtocol::recv_data(T data, size_t size)
 {
-    std::cout << "Reading data, timeout " << timeout << std::endl;
+    std::cout << "Reading " << size << " bytes data ..." << std::endl;
 
-    // clear buffer
-    std::memset(data, 0, size);
+    ssize_t bytes_received = 0;
+    ssize_t result;
+    size_t block_size = CHUNK_SIZE;
 
-    // init poll struct
-    pollfd mypoll = { socket_fd, POLLIN|POLLPRI };
-    ssize_t retval = 0;
-
-    if (poll(&mypoll, 1, timeout * 1000) <= 0)
+    // check size
+    if (size == 0)
     {
-        retval = read(socket_fd, data, size);
+        throw std::invalid_argument("Invalid size");
+    }
+    if (size > static_cast<size_t>(INT_MAX))
+    {
+        throw std::out_of_range("Size too big");
+    }
 
-        if(retval < 0)
+    // Check buffer (only if T is a pointer)
+    if constexpr (std::is_pointer_v<T>)
+    {
+        if (data == nullptr)
         {
-            throw std::runtime_error("Error reading data: " + std::string(strerror(errno)));
+            throw std::invalid_argument("Buffer must not be nullptr");
         }
-        else if(retval == 0)
+    }
+    else
+    {
+        throw std::invalid_argument("Buffer must be a pointer");
+    }
+
+
+    while (bytes_received < static_cast<ssize_t>(size))
+    {
+        // Calculate bytes to read
+        block_size = std::min(block_size, size - bytes_received);
+
+        // check block size
+        if (block_size == 0)
         {
-            throw std::runtime_error("Connection closed: " + std::string(strerror(errno)));
+            throw std::logic_error("Invalid block size");
+        }
+
+        // rcv data
+        result = recv(socket_fd, reinterpret_cast<char*>(data) + bytes_received, block_size, RECV_FLAGS);
+
+        // check return value
+        if (result == 0)
+        {
+            break;
+        }
+        else if (result < 0)
+        {
+            switch (errno)
+            {
+                case EINTR:
+                    std::cout << "Interrupted system call, retrying..." << std::endl;
+                    continue;
+
+                case EAGAIN:
+                    throw std::runtime_error("Resource temporarily unavailable: timeout !!");
+
+                default:
+                    throw std::runtime_error("Error receiving data: " + std::string(strerror(errno)));
+            }
         }
         else
         {
-            if (retval !=  size)
+            bytes_received += result;
+        }
+    } // while
+
+    // check bytes received
+    if (bytes_received <= 0 || bytes_received > INT_MAX)
+    {
+        throw std::out_of_range("Invalid bytes received: " + std::to_string(bytes_received));
+    }
+    if (bytes_received != static_cast<ssize_t>(size))
+    {
+        throw std::runtime_error("Reading data failed, received: " + std::to_string(bytes_received));
+    }
+
+    // log data
+    log_buffer_hex(data, bytes_received);
+
+    return bytes_received;
+}
+
+template <typename T>
+ssize_t AbstractProtocol::send_data(T data, size_t size)
+{
+    std::cout << "Sending " << size << " bytes data ..." << std::endl;
+
+    ssize_t bytes_sent = 0;
+    ssize_t result;
+    size_t block_size = CHUNK_SIZE;
+
+    // check size
+    if (size == 0)
+    {
+        throw std::invalid_argument("Invalid size");
+    }
+    if (size > static_cast<size_t>(INT_MAX))
+    {
+        throw std::out_of_range("Size too big");
+    }
+
+    // Check buffer (only if T is a pointer)
+    if constexpr (std::is_pointer_v<T>)
+    {
+        if (data == nullptr)
+        {
+            throw std::invalid_argument("Buffer must not be nullptr");
+        }
+    }
+    else
+    {
+        throw std::invalid_argument("Buffer must be a pointer");
+    }
+
+
+    while (bytes_sent < static_cast<ssize_t>(size))
+    {
+        // Calculate bytes to read
+        block_size = std::min(block_size, size - bytes_sent);
+
+        // check block size
+        if (block_size == 0)
+        {
+            throw std::logic_error("Invalid block size");
+        }
+
+        // send data
+        result = send(socket_fd, reinterpret_cast<const char*>(data) + bytes_sent, block_size, SEND_FLAGS);
+
+        // check return value
+        if (result == 0)
+        {
+            break;
+        }
+        else if (result < 0)
+        {
+            switch (errno)
             {
-                throw std::runtime_error("Reading data failed: " + std::string(strerror(errno)));
+                case EINTR:
+                    std::cout << "Interrupted system call, retrying..." << std::endl;
+                    continue;
+
+                case EAGAIN:
+                    throw std::runtime_error("Resource temporarily unavailable: timeout !!");
+
+                default:
+                    throw std::runtime_error("Error sending data: " + std::string(strerror(errno)));
             }
         }
-
-#if SPDLOG_ACTIVE_LEVEL <= SPDLOG_LEVEL_DEBUG
-        log_buffer_hex(data, size);
-#endif
-
-    }
-    else
-    {
-        throw std::runtime_error("Reading data timeout: " + std::string(strerror(errno)));
-    }
-}
-
-template <typename T>
-void AbstractProtocol::send_data_poll(T data, size_t size, const uint16_t timeout)
-{
-    std::cout << "Send data, timeout " << timeout << std::endl;
-
-    // init poll struct
-    pollfd mypoll = { socket_fd, POLLOUT|POLLPRI };
-    ssize_t retval = 0;
-
-    if (poll(&mypoll, 1, timeout * 1000))
-    {
-        retval = write(socket_fd, data, size);
-
-        if(retval < 0)
+        else
         {
-            throw std::runtime_error("Error sending data: " + std::string(strerror(errno)));
+            bytes_sent += result;
         }
+    } // while
 
-        if (retval !=  size)
-        {
-            throw std::runtime_error("Sending data failed: " + std::string(strerror(errno)));
-        }
-
-#ifdef DEBUG
-        log_buffer_hex(data, size);
-#endif
-
-    }
-    else
+    // check bytes sent
+    if (bytes_sent <= 0 || bytes_sent > INT_MAX)
     {
-        throw std::runtime_error("Sending data timeout: " + std::string(strerror(errno)));
+        throw std::out_of_range("Invalid bytes sent: " + std::to_string(bytes_sent));
     }
-}
-
-template <typename T>
-void AbstractProtocol::recv_data(T data, size_t size)
-{
-    std::cout << "Receiving data" << std::endl;
-
-    // clear buffer
-    std::memset(data, 0, size);
-
-    // init variables
-    const ssize_t retval = recv(socket_fd, data, size, RECV_FLAGS);
-
-    // check return value
-    if (retval == 0)
+    if (bytes_sent != static_cast<ssize_t>(size))
     {
-        throw std::runtime_error("Connection closed: " + std::string(strerror(errno)));
-    }
-    else if (retval < 0)
-    {
-        throw std::runtime_error("Error receiving data: " + std::string(strerror(errno)));
-    }
-    if (retval != size)
-    {
-        throw std::runtime_error("Receiving data failed: " + std::string(strerror(errno)));
+        throw std::runtime_error("Sending data failed, sent: " + std::to_string(bytes_sent));
     }
 
-#ifdef DEBUG
-    log_buffer_hex(data, size);
-#endif
-}
+    // log data
+    log_buffer_hex(data, bytes_sent);
 
-template <typename T>
-void AbstractProtocol::send_data(T data, size_t size)
-{
-    std::cout << "Sending data" << std::endl;
-
-    // init variable
-    const ssize_t retval = send(socket_fd, data, size, SEND_FLAGS);
-
-    // check return value
-    if (retval < 0)
-    {
-        throw std::runtime_error("Error sending data: " + std::string(strerror(errno)) + " <-> " + std::to_string(errno));
-    }
-
-    if (retval != size)
-    {
-        throw std::runtime_error("Sending data failed: " + std::string(strerror(errno)));
-    }
-
-#ifdef DEBUG
-    log_buffer_hex(data, size);
-#endif
+    return bytes_sent;
 }
