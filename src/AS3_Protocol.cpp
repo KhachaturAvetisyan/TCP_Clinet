@@ -1,12 +1,13 @@
 #include <numeric>
 #include <atomic>
 #include <vector>
+#include <unistd.h>
 #include "AS3_Protocol.hpp"
 
-#define OK_DATA                 (0x01U)
-#define ERROR_DATA              (0x00U)
+#define OK_DATA                                     (0x01U)
+#define ERROR_DATA                                  (0x00U)
 
-#define PHONE_NUMBER_MAX_COUNT           (5U)
+#define PHONE_NUMBER_MAX_COUNT                      (5U)
 
 #define HANDSHAKE_STARTBYTE                         (0xfeffU)
 #define PING_STARTBYTE                              (0xa1U)
@@ -33,6 +34,19 @@
 #define DNS_SERVER_ADDRESS_MAX_SIZE                 (15U)
 #define MAX_PHONE_NUMBER_COUNT                      (5U)
 #define PHONE_NUMBER_STR_MAX_SIZE                   (15U)
+
+
+#if defined(__APPLE__)
+#include <libkern/OSByteOrder.h>
+#define be16toh(x) OSSwapBigToHostInt16(x)
+#define htobe16(x) OSSwapHostToBigInt16(x)
+#define be32toh(x) OSSwapBigToHostInt32(x)
+#define htobe32(x) OSSwapHostToBigInt32(x)
+#define be64toh(x) OSSwapBigToHostInt64(x)
+#define htobe64(x) OSSwapHostToBigInt64(x)
+#elif defined(__linux__)
+#include <arpa/inet.h>
+#endif
 
 
 enum connection_type_t

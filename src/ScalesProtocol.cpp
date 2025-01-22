@@ -3,7 +3,7 @@
 #include <string>
 #include <unistd.h>
 
-void ScalesProtocol::handler_loop(int _socket_fd)
+void ScalesProtocol::handler_loop(const int _socket_fd)
 {
     // set socket fd
     socket_fd = _socket_fd;
